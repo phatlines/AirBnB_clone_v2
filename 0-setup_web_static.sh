@@ -1,44 +1,29 @@
 #!/usr/bin/env bash
-# Prepare my webservers (web-01 & web-02)
+# A bash script that setsup a  web servers for the deployment of web_static
 
-# uncomment for easy debugging
-#set -x
+sudo apt-get -y update > /dev/null
+sudo apt-get install -y nginx > /dev/null
 
-# colors
-blue='\e[1;34m'
-#brown='\e[0;33m'
-green='\e[1;32m'
-reset='\033[0m'
+# creating all the necessary directories and file
+mkdir -p /data/web_static/releases/test/
+mkdir -p /data/web_static/shared/
+touch /data/web_static/releases/test/index.html
+echo "Hello World again!" > /data/web_static/releases/test/index.html
 
-echo -e "${blue}Updating and doing some minor checks...${reset}\n"
-
-# install nginx if not present
-if [ ! -x /usr/sbin/nginx ]; then
-	sudo apt-get update -y -qq && \
-	     sudo apt-get install -y nginx
+#  check if the current directory exits and remove it
+if [ -d "/data/web_static/current" ]
+then
+        sudo rm -rf /data/web_static/current
 fi
+# Create a symbolic link to test
+ln -sf /data/web_static/releases/test/ /data/web_static/current
 
-echo -e "\n${blue}Setting up some minor stuff.${reset}\n"
+# change ownership to  ubuntu
+chown -hR ubuntu:ubuntu /data
 
-# Create directories...
-sudo mkdir -p /data/web_static/releases/test /data/web_static/shared/
+# Configure nginx to serve content pointed to by symbolic link to hbnb_static
+sed -i '38i\\tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n\t}\n' /etc/nginx/sites-available/default
 
-# create index.html for test directory
-echo "<h1>Welcome to th3gr00t.tech <\h1>" | sudo dd status=none of=/data/web_static/releases/test/index.html
+# Restart server
+service nginx restart
 
-# create symbolic link
-sudo ln -sf /data/web_static/releases/test /data/web_static/current
-
-# give user ownership to directory
-sudo chown -R ubuntu:ubuntu /data/
-
-# backup default server config file
-sudo cp /etc/nginx/sites-enabled/default nginx-sites-enabled_default.backup
-
-# Set-up the content of /data/web_static/current/ to redirect
-# to domain.tech/hbnb_static
-sudo sed -i '37i\\tlocation /hbnb_static/ {\n\t\talias /data/web_static/current/;\n\t}\n' /etc/nginx/sites-available/default
-
-sudo service nginx restart
-
-echo -e "${green}Completed${reset}"
